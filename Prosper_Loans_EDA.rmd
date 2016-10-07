@@ -15,13 +15,18 @@ The exploration is divided into 3 analytical segments in increasing order of com
 ## Introduction
 <br>
 
-### Loading the Dataset
+### Loading the Dataset and Setting Global Options
 <br>
 
 ```{r}
 setwd('~/Downloads')
 
 loans <- read.csv('prosperLoanData.csv')
+```
+<br>
+
+```{r global_options}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
 ```
 <br>
 
@@ -43,7 +48,7 @@ str(loans)
 The following libraries are used:
 
 <br> 
-```{r, warning = FALSE, message = FALSE}
+```{r, echo = TRUE}
 library(ggplot2)
 library(knitr)
 library(ggthemes)
@@ -54,7 +59,7 @@ library(tidyr)
 ```
 <br>
 
-```{r}
+```{r, echo = TRUE}
 theme_set(theme_economist())
 ```
 <br>
@@ -66,7 +71,7 @@ I chose my theme from the [ggthemes Github repo](https://github.com/jrnold/ggthe
 ### Exploring and Cleaning Variables
 <br>
 
-```{r}
+```{r, echo = TRUE}
 # Convert CreditScoreRangeLower and CreditScoreRangeUpper into a single
 # CreditScore value (the average of the two)
 loans <- loans %>%
@@ -79,7 +84,7 @@ The variable 'ListingCategory' shows the reason a loan was taken, such as for de
 
 <br>
 
-```{r}
+```{r, echo = TRUE}
 # Convert ListingCategory from numeric to factor variable using the keys given
 # in the Google Spreadsheet.
 labels <- c("Debt Consolidation", "Home Improvement", "Business", "Personal Loan", "Student Use", "Auto", "Baby & Adoption", "Boat", "Cosmetic Procedure", "Engagement Ring", "Green Loans", "Household Expenses", "Large Purchases", "Medical/Dental", "Motorcycle", "RV", "Taxes", "Vacation", "Wedding", "Other", "Not Applicable")
@@ -87,12 +92,14 @@ labels <- c("Debt Consolidation", "Home Improvement", "Business", "Personal Loan
 loans$ListingCategory <- factor(loans$ListingCategory..numeric.,
                                           levels = c(1:6, 8:20, 7, 0),
                                           labels = labels)
+```
 
+```{r}
 summary(loans$ListingCategory)
 ```
 <br>
 
-```{r}
+```{r, echo = TRUE}
 # Convert dates to date class using lubridate's ymd_hms() function
 
 x <- as.character(loans$LoanOriginationDate)
@@ -111,7 +118,7 @@ loans <- loans %>%
 loans$LoanOriginationQuarterF <- factor(loans$LoanOriginationQuarter)
 ```
 <br>
-```{r}
+```{r, echo = TRUE}
 # Join the CreditGrade (which stores credit rating pre-2009) and 
 # ProsperRating..Alpha. (which stores credit rating post-2009) to make one
 # variable. They aren't exactly the same thing, but they're reasonably close
@@ -127,7 +134,9 @@ loans <- loans %>%
                                       NA)))
 
 loans$CreditRating <- ordered(loans$CreditRating, labels = rating_categories)
+```
 
+```{r}
 str(loans$CreditRating)
 ```
 <br>
@@ -154,7 +163,12 @@ Next I want to visualize more data on these borrowers, and there are a variety o
 <br>
 
 ```{r, fig.width = 10, fig.height = 9}
-qplot(x = Occupation, data = loans, fill = I("#0077C0")) +
+ggplot(aes(x = reorder(Occupation, Occupation,
+                       function(x) -length(x)),
+           fill = I("#0077C0")),
+       data = loans) +
+  geom_bar() +
+  xlab("Occupation") +
   theme(axis.text.x = element_text(angle = 90, hjust = 1))
 ```
 
@@ -166,14 +180,19 @@ The first thing I noticed in this histogram were the two bars a world away from 
 
 <br>
 
-```{r, fig.width = 10}
-qplot(x = BorrowerState, data = loans, fill = I("#0077C0")) +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```{r, fig.width = 10, fig.height = 9}
+ggplot(aes(x = reorder(BorrowerState, BorrowerState, 
+                       function(x) length(x)),
+           fill = I("#0077C0")),
+       data = loans) +
+  geom_bar() +
+  xlab("Borrower State") +
+  coord_flip()
 ```
 
 <br>
 
-Once again I changed the text angle so that they weren't illegibly squished together. California is by far the biggest, and that was expected because it is (i) the state where Prosper was founded and (ii) the state with one of the highest state debt per capita according to [this](http://www.governing.com/gov-data/state-debt-per-capita-figures.html) neat interactive data visualization (and also [this one](http://briefs.blpprofessional.com/viz/Households-Add-Debt-But-Not-Uniformly-Across-State-Lines/index.html)). The other popular states include Florida, New York, Texas and Illinois.
+California is by far the biggest, and that was expected because it is (i) the state where Prosper was founded and (ii) the state with one of the highest state debt per capita according to [this](http://www.governing.com/gov-data/state-debt-per-capita-figures.html) neat interactive data visualization (and also [this one](http://briefs.blpprofessional.com/viz/Households-Add-Debt-But-Not-Uniformly-Across-State-Lines/index.html)). The other popular states include Florida, New York, Texas and Illinois.
 
 
 Next let's look at some financial information:
@@ -201,7 +220,7 @@ qplot(x = IncomeRange, data = loans, fill = I("#0077C0")) +
 
 <br>
 
-```{r, fig.width = 10, warning = FALSE}
+```{r, fig.width = 10}
 CreditScoreCount <- qplot(x = CreditScore, data = loans, binwidth = 20,
       color = I("#424242"), fill = I("#0077C0")) +
   scale_x_continuous(limits = c(400, 900), breaks = seq(400, 900, 50))
@@ -227,6 +246,103 @@ The plot also looked approximately normally distrubuted, so I decided to put a k
 <br>
 
 ```{r, fig.width = 10}
+ProsperRatingCount <- qplot(x = ProsperRating..Alpha., 
+      data = subset(loans, !is.na(loans$ProsperRating..Alpha.)),
+      fill = I("#0077C0")) +
+  scale_y_continuous(limits = c(0, 20000), breaks = seq(0, 20000, 4000)) +
+  scale_x_discrete(limits = c("AA", "A", "B", "C", "D", "E", "HR"))
+
+CreditGradeCount <- qplot(x = CreditGrade, 
+      data = subset(loans, !is.na(loans$CreditGrade)),
+      fill = I("#0077C0")) +
+  scale_y_continuous(limits = c(0, 20000), breaks = seq(0, 20000, 4000)) +
+  scale_x_discrete(limits = c("AA", "A", "B", "C", "D", "E", "HR"))
+
+grid.arrange(CreditGradeCount, ProsperRatingCount, ncol = 2)
+```
+
+<br>
+
+The first important fact that goes along with this plot is that 'CreditGrade' is the pre-2009 rating, and 'ProsperRating' is the more sophisticated post-2009 rating. Also, 'CreditGrade' has around 29,000 values and 'ProsperRating' has a little more than 85,000 values, which is displayed by the drastic difference in heights. One thing I immediately noticed is that the relative amounts of 'AA' rated loans are much less post-2009 than they were pre-2009. Could it be because of the stricter rating system Prosper implemented? Or maybe the number decreased because of the financial crisis at the time? I'll explore this a bit more in the bivariate and multivariate plots section.
+
+<br>
+
+```{r, fig.width = 10}
+qplot(x = BorrowerAPR, data = loans, binwidth = 0.02,
+      color = I("#424242"), fill = I("#0077C0")) +
+  scale_x_continuous(breaks = seq(0, 0.5, 0.1))
+```
+
+<br>
+
+The bulk of the loans seem to be near the 0.2 mark, which coincides with the credit rating histograms that show that the majority of the users are in the middle of the risk ratings. There is a strange spike in the 0.35-0.37 bin which indicates a strangely popular fee rate for primarily higher risk borrowers.
+
+<br>
+
+```{r, fig.width = 10}
+qplot(x = LenderYield, data = loans, binwidth = 0.02,
+      color = I("#424242"), fill = I("#0077C0")) +
+  scale_x_continuous(breaks = seq(0, 0.4, 0.1))
+```
+
+<br>
+
+The lender yield plot is similar to borrower APR because they're two sides of the same coin. I do notice, however, that the peak count is slightly lower than the one in the borrower APR plot, and I presume it is because of the losses that are made when borrowers default loans or get charged off on late payments.
+
+<br>
+
+```{r, fig.width = 10}
+qplot(x = DebtToIncomeRatio, data = loans, binwidth = 0.02,
+      color = I("#424242"), fill = I("#0077C0")) +
+  scale_x_continuous(limits = c(0, 1.5),
+                     breaks = seq(0, 1.5, 0.1))
+```
+
+<br>
+
+Most of the borrowers have a debt-to-income ratio below 0.8, and the tail gets microscopic past that number. I've actually limited the x-axis so the plot is clear; the summary will reveal the outliers extremely far away from the rest of the data:
+
+<br>
+
+```{r}
+summary(loans$DebtToIncomeRatio)
+```
+
+<br>
+
+```{r, fig.width = 10}
+ggplot(aes(x = CurrentDelinquencies, 
+           color = I("#424242"), fill = I("#0077C0")), 
+       data = loans) +
+  geom_histogram(binwidth = 1) +
+  scale_x_continuous(limits = c(-1, 20), breaks = seq(-1, 20, 1))
+```
+
+<br>
+
+Almost all the borrowers have 0 current delinquencies. I've limited the x-axis to 20 so that we can see the abrupt decline in current delinquencies, but a summary will reveal the extremes of the data.
+
+<br>
+
+```{r}
+summary(loans$CurrentDelinquencies)
+```
+
+<br>
+
+```{r, fig.width = 10}
+qplot(x = LoanStatus, data = loans,
+      fill = I("#0077C0")) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
+
+<br>
+
+Most loans seem to still be ongoing, which is indicative of their booming growth. Later on, I will group some of these factors so that they're easier to distinguish between.
+
+<br>
+
+```{r, fig.width = 10}
 qplot(x = ListingCategory, data = loans, 
       fill = I("#0077C0")) +
   scale_y_continuous(limits = c(0, 60000), breaks = seq(0, 60000, 10000)) +
@@ -234,6 +350,7 @@ qplot(x = ListingCategory, data = loans,
 ```
 
 <br>
+
 
 Debt Consolidation seems by and far the most popular choice, with the rest of the non-ambiguous (or 'Not Applicable) occupations much below the 10,000 mark. 
 
@@ -248,7 +365,7 @@ Before I start plotting, however, I'm going to make a new dataset that organizes
 
 <br>
 
-```{r}
+```{r, echo = TRUE}
 loans.origination <- loans %>% 
   select(Quarter = LoanOriginationQuarter,
          Amount = LoanOriginalAmount) %>%
@@ -316,7 +433,7 @@ Too many variables - there will be too many colours to make an effective visuali
 
 <br>
 
-```{r}
+```{r, echo = TRUE}
 loans <- loans %>%
   mutate(LoanStatusGroup = ifelse(LoanStatus %in% 
                                   c("Cancelled", "Chargedoff", "Defaulted"), 0,
@@ -355,10 +472,25 @@ I've provided a more thorough analysis of this plot in the Final Plots section i
 
 <br>
 
+```{r, fig.width = 10}
+ggplot(aes(x = Quarter, y = Loans, 
+           group = LoanStatusGroup, color = LoanStatusGroup),
+       data = loans.defaults) +
+  geom_line(aes(group = LoanStatusGroup, color = LoanStatusGroup), 
+            size = 2) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5)) +
+  ylab("Loans (Thousands)") +
+  scale_color_manual(values = c("#FA4659","#FBB448", "#0C9CEE", "#2EB872"))
+```
+
+<br>
+
+Since it's a time series plot, it's appropriate to also display the data in a line. This plot shows the same time series data from the plot above, but with a line instead of a stacked bar chart.
+
 ## Bivariate Plots
 <br>
 
-```{r, fig.width = 10, warning = FALSE}
+```{r, fig.width = 10}
 ggplot(aes(x = ProsperRating..Alpha., y = CreditScore,
            fill = I("#F5F5F5"), color = I("#506E86")), 
        data = loans) +
@@ -387,7 +519,7 @@ Credit Score is one of the factors of Prosper's rating categories, and these cat
 
 <br>
 
-```{r, fig.width = 10, warning = FALSE}
+```{r, fig.width = 10}
 ggplot(aes(x = ProsperRating..Alpha., y = BorrowerAPR * 100,
            fill = I("#F5F5F5"), color = I("#506E86")),
       data = subset(loans, !is.na(BorrowerAPR))) +
@@ -425,13 +557,15 @@ In fact, a better way to show defaulted loans would be to show the rate at which
 
 <br>
 
-```{r, fig.width = 10}
+```{r, fig.width = 10, echo = TRUE}
 loans.defaultrate <- loans %>%
   filter(LoanStatusGroup != "Current" & LoanStatusGroup != "Past Due") %>%
   group_by(Quarter = LoanOriginationQuarterF, LoanStatusGroup) %>%
   summarise(Loans = n()) %>%
   mutate(Rate = Loans / sum(Loans))
+```
 
+```{r, fig.width = 10}
 ggplot(aes(x = Quarter, y = Rate * 100, group = LoanStatusGroup), 
        data = subset(loans.defaultrate, LoanStatusGroup == "Defaulted")) +
   geom_line(size = 0.9) +
@@ -450,7 +584,7 @@ Next, I'm going to split that default rate by the rating that Prosper has given 
 
 <br>
 
-```{r, fig.width = 10, fig.height = 7}
+```{r, echo = TRUE}
 loans.defaultratecolor <- loans %>%
   filter(LoanStatusGroup != "Current" & 
          LoanStatusGroup != "Past Due") %>%
@@ -458,13 +592,16 @@ loans.defaultratecolor <- loans %>%
            CreditRating) %>%
   summarise(Loans = n()) %>%
   mutate(Rate = Loans / sum(Loans))
+```
 
+```{r, fig.width = 10, fig.height = 7}
 ggplot(aes(x = Quarter, y = Rate * 100, group = CreditRating,
            color = CreditRating), 
        data = subset(loans.defaultratecolor, 
                      LoanStatusGroup == "Defaulted",
                      na.rm = T)) +
   geom_line(size = 0.9) +
+  scale_color_brewer(palette = "Reds") +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5)) +
   ylab("Default Percentage")
 ```
@@ -477,7 +614,7 @@ There are two huge spikes in terms of time period, one in 2009 Q2 and one in 201
 
 <br>
 
-```{r, fig.width = 10, warning = FALSE}
+```{r, fig.width = 10}
 ggplot(aes(x = DelinquenciesLast7Years, y = AmountDelinquent),
        data = filter(loans, AmountDelinquent > 0 & 
                             EmploymentStatus != "Other" )) +
@@ -496,12 +633,14 @@ This plot doesn't reveal much. I wanted to see the relationship between the amou
 ## Multivariate Plots
 <br>
 
-```{r, fig.width = 10, warning = FALSE}
+```{r, echo = TRUE}
 loans.status <- loans %>%
   filter(LoanStatus %in% c("Completed", "Defaulted")) %>%
   select(DebtToIncomeRatio, CreditScore, LoanStatus, 
          LoanOriginationQuarter)
+```
 
+```{r, fig.width = 10}
 ggplot(aes(x = DebtToIncomeRatio, y = CreditScore,
            alpha = 0.05, color = LoanStatus),
        data = loans.status) +
@@ -516,7 +655,7 @@ In this scatter plot, I notice that there is a lot of overplotting at the low en
 
 <br>
 
-```{r, fig.width = 10, warning = FALSE}
+```{r, fig.width = 10}
 ggplot(aes(x = DebtToIncomeRatio, y = BorrowerAPR,
            color = as.integer(CreditRating), group = CreditRating), 
        data = loans) +
@@ -541,7 +680,7 @@ The first thing I notive and find interesting is that 'A' category loans seem to
 
 <br>
 
-```{r, fig.width = 10, fig.height = 7, warning = FALSE}
+```{r, fig.width = 10, fig.height = 7}
 ggplot(aes(x = LoanOriginalAmount, y = LenderYield,
            color = as.integer(CreditRating), group = CreditRating),
        data = loans) +
@@ -565,7 +704,7 @@ The final result is a very interesting plot, and I will talk more about it in th
 
 <br>
 
-```{r, fig.width = 10, fig.height = 8, warning = FALSE}
+```{r, fig.width = 10, fig.height = 8}
 Default_APR <- ggplot(aes(x = CurrentDelinquencies, y = BorrowerAPR,
            color = LoanStatusGroup),
        data = filter(loans, loans$CurrentDelinquencies > 0 &
@@ -602,7 +741,7 @@ This plot was made to see if there were any distinct differences in terms of com
 ### Plot One
 <br>
 
-```{r, fig.width = 10, fig.height = 6, echo = FALSE}
+```{r, fig.width = 10, fig.height = 6}
 ggplot(aes(x = Quarter, y = Loans, fill = LoanStatusGroup), 
        data = loans.defaults) +
   geom_bar(stat = "identity") +
@@ -628,7 +767,7 @@ It's difficult to say whether their new policies have improved investment qualit
 ### Plot Two
 <br>
 
-```{r, fig.width = 10, echo = FALSE}
+```{r, fig.width = 10}
 ggplot(aes(x = Quarter, y = Rate * 100, group = LoanStatusGroup), 
        data = subset(loans.defaultrate, LoanStatusGroup == "Defaulted")) +
   geom_line(size = 0.9) +
@@ -654,7 +793,7 @@ Hence, that downward spike occuring around the end of 2012 uptil 2014 is quite m
 ### Plot Three
 <br>
 
-```{r, fig.width = 10, fig.height = 7, warning = FALSE, echo = FALSE}
+```{r, fig.width = 10, fig.height = 7}
 ggplot(aes(x = LoanOriginalAmount, y = LenderYield * 100,
            color = as.integer(CreditRating), group = CreditRating),
        data = loans) +
@@ -669,7 +808,7 @@ ggplot(aes(x = LoanOriginalAmount, y = LenderYield * 100,
   ggtitle("Loan Amount vs Lender Yield by Loan Status") +
   theme(plot.title = element_text(lineheight = 0.8, face = "bold"),
         legend.key.width = unit(1, "cm")) +
-  xlab("Loan Amount") + 
+  xlab("Loan Amount (USD)") + 
   ylab("Lender Yield Percentage")
 ```
 
@@ -690,10 +829,12 @@ I've just mentioned a few questions that can be answered through this plot, and 
 ## Reflection
 <br>
 
-In a sentence: this was much more difficut than I thought it would be, but in the end it was incredibly rewarding. Before I started, I thought, "I've sort of done EDA before with P1: Exploring Titanic Dataset, how much harder can this be?" It wasn't nearly the same; the dataset was much more sophisticated and the tools were much more refined.
+In a sentence: this was much more difficut than I thought it would be, but in the end it was incredibly rewarding. Before I started, I thought, "I've sort of done EDA before with P1: Exploring Titanic Dataset, how much harder can this be?" It wasn't nearly the same; the dataset was much more sophisticated and the tools I used were much more refined.
 
-When I realized this, I knew immediately that there had to be some purpose behind this EDA, some direction that I wanted to head in. I also realized that I needed to be more informed about my data and what exactly I was trying to show. So I first researched Prosper, peer-to-peer lending, loan details and financial procedures, among other things. I then planned on how I would attack the data, and concluded that there were three primary directions I could follow. I could explore it by questioning the data through the eyes of one of the three main stakeholders: borrowers, investors, and the company itself. I finally decided that I would explore it keeping in mind the requirements of Prosper - what information could I find that would be useful to improve Prosper, or identify a particular business flaw.
+When I realized this wasn't going to be easy, I knew immediately that there had to be some purpose behind this EDA; some direction that I wanted to head in. I also realized that I needed to be more informed about my data and what exactly I was trying to show. So I first researched Prosper, peer-to-peer lending, loan details and financial procedures, among other things. I then planned on how I would attack the data, and concluded that there were three primary directions I could follow - I could explore it by questioning the data through the eyes of one of the three main stakeholders: borrowers, investors, and the company itself. I finally decided that I would explore it keeping in mind the requirements of Prosper - what information could I find that would be useful to improve Prosper, or identify a particular business flaw.
 
 The main problem I ran into this dataset was overplotting. A lot of the time, I would hypothesize a relationship and then plot the data to check if it was true or not, but most of the time the sheer amount of data (and it's variation) would disguise any trend that may exist. A solution would be to sample the data, but I chose not to do that this time (and opted instead for colouring it). 
 
 I also noticed that this project involved a LOT of googling to figure out how to do stuff. I also realized the amount of effort that's required to get that amazing plot that simplifies complicated information. Just the sheer number of trials (and errors) I went through with this project makes me now really appreciate the wonderful visualizations I see around the Web. The combination of science and art is challenging, but quite fun, and I know that experience with datasets like this one will only improve my EDA skills.
+
+There are a number of different ways to take this project further. Firstly, I've focused on a small subset of the variables available in the dataset, and there is a vast amount of data I've chosen not to explore. I think I'd like to explore the investors side a bit more; look at investor profit and losses and their general activity in the peer-to-peer lending industry. Also, I would like to learn about the kind of plots and graphs specifically used by the finance industry, so that I can incorporate that knowledge into any future datasets I may explore. Lastly, although I haven't learned it yet, I'd like to incorporate a machine learning algorithm into my exploration to predict the number of ongoing loans that will end up being defaulted. I believe that an accurate model will be very beneficial to Prosper, so it's definitely something I'd like to look into once I've learned a bit of machine learning (which is next and something I'm very excited about). And after that, somewhere in the near future, maybe a more complex model once I've finished the Machine Learning Nanodegree.  
