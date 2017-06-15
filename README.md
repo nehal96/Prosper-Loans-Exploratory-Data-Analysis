@@ -1,7 +1,7 @@
 # Prosper Loans Exploratory Data Analysis
 Exploratory Data Analysis in R using loan data from peer-to-peer lending platform Prosper.
 
-[Click here](https://nehal96.github.io/Prosper-Loans-Exploratory-Data_Analysis/Prosper_Loans_EDA.html) to view the Prosper Loans EDA Report.
+[Click here](https://nehal96.github.io/Prosper-Loans-Exploratory-Data-Analysis/Prosper_Loans_EDA.html) to view the Prosper Loans EDA Report.
 
 ## Abstract
 
